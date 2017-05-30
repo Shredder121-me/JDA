@@ -21,8 +21,9 @@ import net.dv8tion.jda.core.requests.Request;
 import net.dv8tion.jda.core.requests.Response;
 import net.dv8tion.jda.core.requests.RestAction;
 import net.dv8tion.jda.core.requests.Route;
+import okhttp3.RequestBody;
 import org.apache.commons.collections4.map.CaseInsensitiveMap;
-
+import org.json.JSONObject;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
@@ -31,7 +32,17 @@ public abstract class AuditableRestAction<T> extends RestAction<T>
 
     protected String reason = null;
 
-    public AuditableRestAction(JDA api, Route.CompiledRoute route, Object data)
+    public AuditableRestAction(JDA api, Route.CompiledRoute route, RequestBody data)
+    {
+        super(api, route, data);
+    }
+
+    public AuditableRestAction(JDA api, Route.CompiledRoute route)
+    {
+        super(api, route);
+    }
+
+    public AuditableRestAction(JDA api, Route.CompiledRoute route, JSONObject data)
     {
         super(api, route, data);
     }
@@ -77,7 +88,7 @@ public abstract class AuditableRestAction<T> extends RestAction<T>
 
         public EmptyRestAction(JDA api, T content)
         {
-            super(api, null, null);
+            super(api, null);
             this.content = content;
         }
 
