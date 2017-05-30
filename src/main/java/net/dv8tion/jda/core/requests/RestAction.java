@@ -21,6 +21,7 @@ import net.dv8tion.jda.core.entities.impl.JDAImpl;
 import net.dv8tion.jda.core.exceptions.ErrorResponseException;
 import net.dv8tion.jda.core.exceptions.PermissionException;
 import net.dv8tion.jda.core.exceptions.RateLimitedException;
+import net.dv8tion.jda.core.requests.Route.CompiledRoute;
 import net.dv8tion.jda.core.requests.restaction.CompletedFuture;
 import net.dv8tion.jda.core.requests.restaction.RequestFuture;
 import net.dv8tion.jda.core.utils.SimpleLog;
@@ -164,8 +165,10 @@ public abstract class RestAction<T>
     };
 
     protected final JDAImpl api;
-    protected Route.CompiledRoute route;
-    protected RequestBody data;
+    private Route.CompiledRoute route;
+    private RequestBody data;
+    private CaseInsensitiveMap<String, String> headers;
+
 
     /**
      * Creates a new RestAction instance
@@ -183,6 +186,7 @@ public abstract class RestAction<T>
         this.api = (JDAImpl) api;
         this.route = route;
         this.data = data;
+        this.headers = null;
     }
 
     /**
@@ -212,7 +216,7 @@ public abstract class RestAction<T>
      */
     public RestAction(JDA api, Route.CompiledRoute route, JSONObject data)
     {
-        this(api, route, data == null ? null : RequestBody.create(Requester.JSON, data.toString()));
+        this(api, route, data == null ? null : RequestBody.create(Requester.MEDIA_TYPE_JSON, data.toString()));
     }
 
     /**
@@ -267,13 +271,12 @@ public abstract class RestAction<T>
      */
     public void queue(Consumer<T> success, Consumer<Throwable> failure)
     {
-        finalizeData();
-        finalizeRoute();
+        finalizeAction();
         if (success == null)
             success = DEFAULT_SUCCESS;
         if (failure == null)
             failure = DEFAULT_FAILURE;
-        api.getRequester().request(new Request<>(this, success, failure, true, finalizeHeaders()));
+        api.getRequester().request(new Request<>(this, success, failure, true));
     }
 
     /**
@@ -304,9 +307,8 @@ public abstract class RestAction<T>
      */
     public Future<T> submit(boolean shouldQueue)
     {
-        finalizeData();
-        finalizeRoute();
-        return new RequestFuture<>(this, shouldQueue, finalizeHeaders());
+        finalizeAction();
+        return new RequestFuture<>(this, shouldQueue);
     }
 
     /**
@@ -653,30 +655,45 @@ public abstract class RestAction<T>
         return executor.schedule(() -> queue(success, failure), delay, unit);
     }
 
-    protected void setData(JSONObject object)
-    {
-        this.data = object == null ? null : RequestBody.create(Requester.JSON, object.toString());
+    private final void finalizeAction() {
+        this.data = finalizeData();
+        this.route = this.finalizeRoute();
+        this.headers = this.finalizeHeaders();
     }
 
-    protected void setData(JSONArray array)
+    protected RequestBody finalizeData() { return data; }
+    protected CompiledRoute finalizeRoute() { return route; }
+    protected CaseInsensitiveMap<String, String> finalizeHeaders() { return headers; }
+
+    Route.CompiledRoute getRoute()
     {
-        this.data = array == null ? null : RequestBody.create(Requester.JSON, array.toString());
-        
+        return this.route;
     }
 
-    protected void finalizeData() { }
-
-    protected void finalizeRoute() { }
-
-    protected CaseInsensitiveMap<String, String> finalizeHeaders()
+    RequestBody getData()
     {
-        return null;
+        return this.data;
+    }
+
+    CaseInsensitiveMap<String, String> getHeaders()
+    {
+        return this.headers;
     }
 
     protected static String encodeHeaderValue(String reason)
     {
         byte[] bytes = reason.getBytes();
         return new String(bytes, Charset.forName("iso-8859-1"));
+    }
+
+    protected static RequestBody getRequestBody(JSONObject object)
+    {
+        return object == null ? null : RequestBody.create(Requester.MEDIA_TYPE_JSON, object.toString());
+    }
+
+    protected static RequestBody getRequestBody(JSONArray array)
+    {
+        return array == null ? null : RequestBody.create(Requester.MEDIA_TYPE_JSON, array.toString());
     }
 
     protected abstract void handleResponse(Response response, Request<T> request);
