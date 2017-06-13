@@ -23,6 +23,7 @@ import net.dv8tion.jda.core.exceptions.PermissionException;
 import net.dv8tion.jda.core.exceptions.RateLimitedException;
 import net.dv8tion.jda.core.requests.Route.CompiledRoute;
 import net.dv8tion.jda.core.requests.restaction.CompletedFuture;
+import net.dv8tion.jda.core.requests.restaction.FailedFuture;
 import net.dv8tion.jda.core.requests.restaction.RequestFuture;
 import net.dv8tion.jda.core.utils.SimpleLog;
 import org.apache.commons.collections4.map.CaseInsensitiveMap;
@@ -168,7 +169,6 @@ public abstract class RestAction<T>
     private Route.CompiledRoute route;
     private RequestBody data;
     private CaseInsensitiveMap<String, String> headers;
-
 
     /**
      * Creates a new RestAction instance
@@ -665,17 +665,17 @@ public abstract class RestAction<T>
     protected CompiledRoute finalizeRoute() { return route; }
     protected CaseInsensitiveMap<String, String> finalizeHeaders() { return headers; }
 
-    Route.CompiledRoute getRoute()
+    protected Route.CompiledRoute getRoute()
     {
         return this.route;
     }
 
-    RequestBody getData()
+    protected RequestBody getData()
     {
         return this.data;
     }
 
-    CaseInsensitiveMap<String, String> getHeaders()
+    protected CaseInsensitiveMap<String, String> getHeaders()
     {
         return this.headers;
     }
@@ -720,6 +720,7 @@ public abstract class RestAction<T>
         @Override
         public void queue(Consumer<T> success, Consumer<Throwable> failure)
         {
+            
             if (success != null)
                 success.accept(returnObj);
         }
@@ -739,19 +740,20 @@ public abstract class RestAction<T>
         @Override
         protected void handleResponse(Response response, Request<T> request) { }
     }
+
     /**
      * Specialized form of {@link net.dv8tion.jda.core.requests.RestAction} that is used to provide information that
-     * has already been retrieved or generated so that another request does not need to be made to Discord.
-     * <br>Basically: Allows you to provide a value directly to the success returns.
+     * an error has occured before the request could be made.
+     * <br>Basically: Allows you to provide an exception directly to the failure consumer.
      *
      * @param <T>
      *        The generic response type for this RestAction
      */
     public static class FailedRestAction<T> extends RestAction<T>
     {
-        private final RuntimeException exception;
+        private final Exception exception;
 
-        public FailedRestAction(RuntimeException exception)
+        public FailedRestAction(Exception exception)
         {
             super(null, null);
             this.exception = exception;
@@ -767,16 +769,16 @@ public abstract class RestAction<T>
         @Override
         public Future<T> submit(boolean shouldQueue)
         {
-            throw exception;
+            return new FailedFuture<>(exception);
         }
 
         @Override
         public T complete(boolean shouldQueue)
         {
-            throw exception;
+            throw new RuntimeException(exception);
         }
 
         @Override
-        protected void handleResponse(Response response, Request<T> request) { }
+        protected void handleResponse(Response response, Request<T> request) {}
     }
 }
