@@ -49,6 +49,7 @@ import java.io.UnsupportedEncodingException;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.zip.DataFormatException;
+import java.util.zip.Inflater;
 import java.util.zip.InflaterOutputStream;
 
 public class WebSocketClient extends WebSocketAdapter implements WebSocketListener
@@ -846,6 +847,27 @@ public class WebSocketClient extends WebSocketAdapter implements WebSocketListen
     {
         //Thanks to ShadowLordAlpha and Shredder121 for code and debugging.
         //Get the compressed message and inflate it
+        String oldDecompressed = oldDecompress(binary);
+        String newDecompressed = newDecompress(binary);
+        // send the inflated message to the TextMessage method
+        onTextMessage(websocket, newDecompressed);
+    }
+
+    private static String oldDecompress(byte[] binary) throws DataFormatException, UnsupportedEncodingException {
+        StringBuilder builder = new StringBuilder();
+        Inflater decompresser = new Inflater();
+        decompresser.setInput(binary, 0, binary.length);
+        byte[] result = new byte[128];
+        while(!decompresser.finished())
+        {
+            int resultLength = decompresser.inflate(result);
+            builder.append(new String(result, 0, resultLength, "UTF-8"));
+        }
+        decompresser.end();
+        return builder.toString();
+    }
+
+    private static String newDecompress(byte[] binary) throws DataFormatException, UnsupportedEncodingException {
         ByteArrayOutputStream out = new ByteArrayOutputStream(binary.length * 2);
         try (InflaterOutputStream decompressor = new InflaterOutputStream(out))
         {
@@ -855,9 +877,7 @@ public class WebSocketClient extends WebSocketAdapter implements WebSocketListen
         {
             throw (DataFormatException) new DataFormatException("Malformed").initCause(e);
         }
-
-        // send the inflated message to the TextMessage method
-        onTextMessage(websocket, out.toString("UTF-8"));
+        return out.toString("UTF-8");
     }
 
     @Override
