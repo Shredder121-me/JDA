@@ -617,6 +617,9 @@ public class AudioConnection
 
             try
             {
+                //avoid getfield opcode
+                AudioSendHandler sendHandler = AudioConnection.this.sendHandler;
+
                 if (sentSilenceOnConnect && sendHandler != null && sendHandler.canProvide())
                 {
                     silenceCounter = -1;
